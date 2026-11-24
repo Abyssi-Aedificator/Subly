@@ -1,6 +1,6 @@
 # Subly
 
-Subly tracks online subscriptions, upcoming renewals, and recurring costs in CAD. Your subscription list is saved in your browser. Dropbox backup is optional.
+Subly tracks online subscriptions, upcoming renewals, and recurring costs in CAD. Your subscription list is saved in your browser. Dropbox backup is optional. See the [changelog](CHANGELOG.md) for release notes.
 
 ## Getting started
 
@@ -30,7 +30,7 @@ Open **Settings** from Overview. Under **Appearance**, choose **Light**, **Dark*
 3. Register the exact Subly address as an OAuth redirect URI. For the example above, use `http://127.0.0.1:8080/index.html`.
 4. In **Settings → Dropbox backup**, enter the Dropbox app key and choose **Connect Dropbox**.
 
-**Back up now** saves your list to `subly-backup.json` in the Dropbox app folder. **Restore backup** replaces this device's list after confirmation. Subly also asks before replacing an existing Dropbox backup. Use the same Dropbox app key and account on each device. Backups and restores are manual. The connection lasts for the current tab or until Dropbox expires it.
+**Back up now** saves your list to `subly-backup.json` in the Dropbox app folder. **Restore backup** replaces this device's list after confirmation. Subly also asks before replacing an existing Dropbox backup. Use the same Dropbox app key and account on each device. Backups and restores are manual. Subly remembers the app key in your browser after successful authorization. Subly also keeps the connection across restarts and renews access when you back up or restore. Existing connections require one reconnection to enable this.
 
 ## Install and use offline
 

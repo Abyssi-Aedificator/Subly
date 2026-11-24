@@ -5,15 +5,21 @@
   const status = byId("dropbox-status");
   const pendingKey = "subly.dropbox.pending";
   const tokenKey = "subly.dropbox.token";
+  const appKeyStorage = "subly.dropbox.appKey";
+  const connectionKey = "subly.dropbox.connection";
+  const appKeyInput = connect.elements.appKey;
   const path = "/subly-backup.json";
   const redirect = location.origin + location.pathname;
   const supported = isSecureContext && /^https?:$/.test(location.protocol);
   let token;
+  let connection;
+  let expiresAt = 0;
 
   function showConnection() {
-    connect.hidden = Boolean(token) || !supported;
-    actions.hidden = !token;
-    status.textContent = token ? "Dropbox connected for this tab." : supported
+    const connected = Boolean(token || connection);
+    connect.hidden = connected || !supported;
+    actions.hidden = !connected;
+    status.textContent = connected ? "Dropbox connected." : supported
       ? "Connect to back up or restore your subscription list."
       : "Open Subly over HTTPS or localhost to connect Dropbox.";
   }
@@ -36,7 +42,7 @@
   connect.onsubmit = event => {
     event.preventDefault();
     run(async () => {
-      const appKey = connect.elements.appKey.value.trim();
+      const appKey = appKeyInput.value.trim();
       if (!appKey) throw Error("Enter your Dropbox app key.");
       const verifier = randomHex();
       const state = randomHex();
@@ -46,14 +52,16 @@
       sessionStorage.setItem(pendingKey, JSON.stringify({appKey, verifier, state, redirect}));
       location.assign("https://www.dropbox.com/oauth2/authorize?" + new URLSearchParams({
         client_id: appKey, redirect_uri: redirect, response_type: "code", state,
-        code_challenge: challenge, code_challenge_method: "S256",
+        code_challenge: challenge, code_challenge_method: "S256", token_access_type: "offline",
         scope: "files.content.read files.content.write files.metadata.read"
       }));
     });
   };
 
   async function restoreConnection() {
-    token = sessionStorage.getItem(tokenKey);
+    const saved = JSON.parse(localStorage.getItem(connectionKey) || "null");
+    if (saved?.appKey && saved.refreshToken) connection = saved;
+    sessionStorage.removeItem(tokenKey);
     showConnection();
     const url = new URL(location.href);
     const pending = JSON.parse(sessionStorage.getItem(pendingKey));
@@ -72,17 +80,52 @@
         redirect_uri: redirect, code_verifier: pending.verifier})
     });
     if (!response.ok) throw Error("Dropbox could not authorize Subly. Check your app key and redirect URL.");
-    const {access_token} = await response.json();
-    if (!access_token) throw Error("Dropbox did not return an access token.");
-    sessionStorage.setItem(tokenKey, access_token);
+    const {access_token, refresh_token, expires_in} = await response.json();
+    if (!access_token || !refresh_token) throw Error("Dropbox did not return a persistent connection. Connect again.");
+    connection = {appKey: pending.appKey, refreshToken: refresh_token};
+    localStorage.setItem(connectionKey, JSON.stringify(connection));
+    try {
+      localStorage.setItem(appKeyStorage, pending.appKey);
+    } catch {
+      // The current Dropbox session still works if preferences cannot be saved.
+    }
     token = access_token;
+    expiresAt = Date.now() + Number(expires_in || 14400) * 1000;
     showConnection();
   }
 
+  async function refreshAccess() {
+    if (!connection) throw Error("Connect Dropbox to continue.");
+    const response = await fetch("https://api.dropboxapi.com/oauth2/token", {
+      method: "POST",
+      body: new URLSearchParams({grant_type: "refresh_token", refresh_token: connection.refreshToken,
+        client_id: connection.appKey})
+    });
+    if (!response.ok) {
+      const result = await response.json().catch(() => null);
+      if (result?.error === "invalid_grant") {
+        disconnect();
+        throw Error("Dropbox authorization expired. Connect again.");
+      }
+      throw Error("Dropbox could not renew access. Try again.");
+    }
+    const {access_token, expires_in} = await response.json();
+    if (!access_token) throw Error("Dropbox did not return an access token.");
+    token = access_token;
+    expiresAt = Date.now() + Number(expires_in || 14400) * 1000;
+  }
+
   async function request(host, endpoint, headers, body) {
-    const response = await fetch("https://" + host + ".dropboxapi.com/2/files/" + endpoint, {
+    if (!token || Date.now() + 60000 >= expiresAt) await refreshAccess();
+    const send = () => fetch("https://" + host + ".dropboxapi.com/2/files/" + endpoint, {
       method: "POST", headers: {...headers, Authorization: "Bearer " + token}, body
     });
+    let response = await send();
+    if (response.status === 401) {
+      token = null;
+      await refreshAccess();
+      response = await send();
+    }
     if (response.status === 401) {
       disconnect();
       throw Error("Dropbox authorization expired. Connect again.");
@@ -137,12 +180,20 @@
   });
 
   function disconnect() {
+    localStorage.removeItem(connectionKey);
+    connection = null;
     token = null;
+    expiresAt = 0;
     sessionStorage.removeItem(tokenKey);
     showConnection();
   }
 
-  byId("dropbox-disconnect").onclick = disconnect;
+  byId("dropbox-disconnect").onclick = () => run(disconnect);
+  try {
+    appKeyInput.value = localStorage.getItem(appKeyStorage) ?? "";
+  } catch {
+    // The key can still be entered manually.
+  }
   showConnection();
   if (supported) run(restoreConnection);
 }

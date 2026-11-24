@@ -1,8 +1,8 @@
 "use strict";
 
 const cachePrefix = "subly-shell:" + self.registration.scope + ":";
-const cacheName = cachePrefix + "v1";
-const shell = ["index.html", "style.css", "app.js", "dropbox.js", "manifest.webmanifest",
+const cacheName = cachePrefix + "v6";
+const shell = ["index.html", "style.css", "app.js", "dropbox.js", "CHANGELOG.md", "manifest.webmanifest",
   "icon-192.png", "icon-512.png", "icon-180.png"];
 const shellUrls = shell.map(path => new URL(path, self.registration.scope).href);
 

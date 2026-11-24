@@ -117,7 +117,14 @@
 
 .dropbox-status { margin: 10px 0; overflow-wrap: anywhere; }
 #dropbox-connect input { width: min(320px, 100%); }
-#dropbox-connect button, #dropbox-actions button { margin-top: 8px; }
+#dropbox-connect button { margin-top: 8px; }
+
+#dropbox-actions:not([hidden]) {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 18px;
+}
 
 .settings-link {
   color: inherit;
@@ -128,3 +135,22 @@
 #settings #theme-switch {
   margin-top: 6px;
 }
+
+.version-badge {
+  margin-inline-start: 14px;
+  padding: 3px 7px;
+  border-radius: 6px;
+  background: #e3ede7;
+  color: #326554;
+  font-size: 12px;
+  letter-spacing: normal;
+}
+
+[data-theme="dark"] .version-badge {
+  background: #304637;
+  color: #deedcd;
+}
+
+#open-changelog { margin-top: 12px; }
+#changelog-content ul { padding-inline-start: 22px; }
+#changelog-content li + li { margin-top: 8px; }

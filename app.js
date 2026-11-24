@@ -220,3 +220,31 @@ if ("serviceWorker" in navigator && /^https?:$/.test(location.protocol)) {
     console.warn("Subly offline setup failed.", error);
   });
 }
+
+byId("open-changelog").onclick = async () => {
+  const dialog = byId("changelog-dialog");
+  const content = byId("changelog-content");
+  content.textContent = "Loading release notes…";
+  dialog.showModal();
+  try {
+    const response = await fetch("./CHANGELOG.md");
+    if (!response.ok) throw new Error("Changelog unavailable");
+    const notes = await response.text();
+    content.replaceChildren();
+    let list;
+    for (const line of notes.split(/\r?\n/)) {
+      if (line.startsWith("## ")) {
+        content.append(el("h3", "", line.slice(3)));
+        list = null;
+      } else if (line.startsWith("- ")) {
+        if (!list) {
+          list = el("ul");
+          content.append(list);
+        }
+        list.append(el("li", "", line.slice(2)));
+      }
+    }
+  } catch {
+    content.textContent = "Could not load the release notes.";
+  }
+};
