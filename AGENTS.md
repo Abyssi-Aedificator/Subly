@@ -22,6 +22,7 @@ Subly is a buildless PWA for tracking online subscriptions. Serve the repository
 
 - Keep relative URLs and the manifest identity, start URL, and scope compatible with existing installs and subdirectory hosting.
 - When changing cached files, advance the cache revision in `sw.js` so existing installs receive the update. Keep cache cleanup scoped to Subly's registration.
+- For icon-only updates, ship the changed PNGs and the new `sw.js` revision together. Browsers detect the changed worker and Subly offers **Update now** or **Later** once the refreshed icon assets are cached.
 - Advance the numeric suffix in `cacheName` independently of the release version. Repository-only documentation changes need no cache revision. `CHANGELOG.md` is part of the cached app shell.
 
 ## Releases and changelog
