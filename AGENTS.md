@@ -23,14 +23,14 @@ Subly is a buildless PWA for tracking online subscriptions. Serve the repository
 - Keep relative URLs and the manifest identity, start URL, and scope compatible with existing installs and subdirectory hosting.
 - When changing cached files, advance the cache revision in `sw.js` so existing installs receive the update. Keep cache cleanup scoped to Subly's registration.
 - For icon-only updates, ship the changed PNGs and the new `sw.js` revision together. Browsers detect the changed worker and Subly offers **Update now** or **Later** once the refreshed icon assets are cached.
-- Advance the numeric suffix in `cacheName` independently of the release version. Repository-only documentation changes need no cache revision. `CHANGELOG.md` is part of the cached app shell.
+- Advance the numeric suffix in `cacheName` independently of the release version. Repository-only documentation changes need no cache revision. `changelog.txt` is part of the cached app shell.
 
 ## Releases and changelog
 
 - Change the app version only when explicitly requested. For a generic bump request, inspect the current version and offer Major, Minor, Patch, or Consolidation. Show the resulting versions for Major, Minor, and Patch. Follow an explicitly supplied bump type or target version and clarify any conflict between them.
 - Use semantic versioning. Major increments the first component and resets the other two. Minor increments the second component and resets the patch. Patch increments the third component.
-- On release, update the `.version-badge` text and accessible label in `index.html` and the release heading in `CHANGELOG.md` together. If runtime release markers are introduced, keep them aligned with the badge.
-- Keep release headings newest first. Record user-facing features and fixes under `## Unreleased` until they ship, one bullet per line. Omit release-number and cache-revision bookkeeping from the bullets.
+- On release, update the `.version-badge` text and accessible label in `index.html` and the release heading in `changelog.txt` together. If runtime release markers are introduced, keep them aligned with the badge.
+- Keep release headings newest first. Record user-facing features and fixes under `Unreleased` until they ship, one bullet per line. Omit release-number and cache-revision bookkeeping from the bullets.
 - When the user requests consolidation, confirm any missing inclusive version range and target. Combine and deduplicate affected user-facing notes into one release heading, preserve notes outside the range, and update the release markers and cache revision together.
 
 ## Git workflow

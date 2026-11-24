@@ -345,14 +345,14 @@ byId("open-changelog").onclick = async () => {
   content.textContent = "Loading release notes…";
   dialog.showModal();
   try {
-    const response = await fetch("./CHANGELOG.md");
+    const response = await fetch("./changelog.txt");
     if (!response.ok) throw new Error("Changelog unavailable");
     const notes = await response.text();
     content.replaceChildren();
     let list;
     for (const line of notes.split(/\r?\n/)) {
-      if (line.startsWith("## ")) {
-        content.append(el("h3", "", line.slice(3)));
+      if (/^(?:Unreleased|\d+\.\d+\.\d+)$/.test(line)) {
+        content.append(el("h3", "", line));
         list = null;
       } else if (line.startsWith("- ")) {
         if (!list) {

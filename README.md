@@ -1,6 +1,6 @@
 # Subly
 
-Subly tracks online subscriptions, upcoming renewals, and recurring costs in CAD. Your subscription list is saved in your browser. Dropbox backup is optional. See the [changelog](CHANGELOG.md) for release notes.
+Subly tracks online subscriptions, upcoming renewals, and recurring costs in CAD. Your subscription list is saved in your browser. Dropbox backup is optional. See the [changelog](changelog.txt) for release notes.
 
 ## Getting started
 
@@ -37,3 +37,5 @@ Open **Settings** from Overview. Under **Appearance**, choose **Light**, **Dark*
 Open Subly over HTTPS or localhost and use your browser's **Install** or **Add to Home Screen** option. After Subly finishes loading online, you can track subscriptions and use Settings offline. Dropbox backup and restore require internet access.
 
 Use **Settings → Release notes → Check for updates** to check manually. When a new build is ready, choose **Update now** to reload Subly or **Later** to keep working. You can reopen the prompt from **Update available** in the header.
+
+If your home screen keeps the old icon after applying an update, the browser or operating system may still be using the icon from the original installation. If you reinstall Subly to refresh it, back up your subscriptions first.
