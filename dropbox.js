@@ -3,6 +3,49 @@
   const connect = byId("dropbox-connect");
   const actions = byId("dropbox-actions");
   const status = byId("dropbox-status");
+  const syncStatus = byId("overview-sync");
+  const syncedKey = "subly.dropbox.synced";
+  let syncing = false;
+  let busy = false;
+  let syncTimer;
+  let statusRevision = 0;
+
+  const snapshot = entries => JSON.stringify({app: "Subly", version: 1, subscriptions: entries});
+
+  async function fingerprint(data) {
+    const bytes = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(data));
+    return Array.from(new Uint8Array(bytes), byte => byte.toString(16).padStart(2, "0")).join("");
+  }
+
+  async function updateSyncStatus() {
+    const revision = ++statusRevision;
+    if (syncing || !connection) {
+      syncStatus.textContent = syncing ? "Dropbox · Sync in progress" : "Dropbox · Not connected";
+      return;
+    }
+    try {
+      const saved = syncBaseline();
+      const matches = storageReady && saved && saved.hash === await fingerprint(snapshot(services));
+      if (revision === statusRevision) {
+        syncStatus.textContent = matches ? "Dropbox · No changes" : "Dropbox · Changes need sync";
+      }
+    } catch {
+      if (revision === statusRevision) syncStatus.textContent = "Dropbox · Status unavailable";
+    }
+  }
+
+  function syncBaseline() {
+    const saved = localStorage.getItem(syncedKey);
+    return saved?.startsWith("{") ? JSON.parse(saved) : null;
+  }
+
+  async function markSynced(data, rev) {
+    try {
+      localStorage.setItem(syncedKey, JSON.stringify({hash: await fingerprint(data), rev}));
+    } catch {
+      // The transfer succeeded even if the local status could not be saved.
+    }
+  }
   const pendingKey = "subly.dropbox.pending";
   const tokenKey = "subly.dropbox.token";
   const appKeyStorage = "subly.dropbox.appKey";
@@ -16,6 +59,7 @@
   let expiresAt = 0;
 
   function showConnection() {
+    updateSyncStatus();
     const connected = Boolean(token || connection);
     connect.hidden = connected || !supported;
     actions.hidden = !connected;
@@ -24,14 +68,25 @@
       : "Open Subly over HTTPS or localhost to connect Dropbox.";
   }
 
-  async function run(operation) {
+  async function run(operation, transfer = false) {
+    if (busy) return;
+    busy = true;
     const controls = document.querySelectorAll("#dropbox-connect input, #dropbox-connect button, #dropbox-actions button");
     controls.forEach(control => { control.disabled = true; });
+    if (transfer) {
+      syncing = true;
+      updateSyncStatus();
+    }
     try {
       await operation();
     } catch (error) {
       status.textContent = error instanceof TypeError ? "Could not reach Dropbox. Try again." : error.message;
     } finally {
+      busy = false;
+      if (transfer) {
+        syncing = false;
+        updateSyncStatus();
+      }
       controls.forEach(control => { control.disabled = false; });
     }
   }
@@ -84,6 +139,7 @@
     if (!access_token || !refresh_token) throw Error("Dropbox did not return a persistent connection. Connect again.");
     connection = {appKey: pending.appKey, refreshToken: refresh_token};
     localStorage.setItem(connectionKey, JSON.stringify(connection));
+    localStorage.removeItem(syncedKey);
     try {
       localStorage.setItem(appKeyStorage, pending.appKey);
     } catch {
@@ -139,19 +195,26 @@
     return result.error_summary?.startsWith("path/not_found");
   }
 
-  byId("dropbox-upload").onclick = () => run(async () => {
+  async function upload(automatic) {
     read();
     if (!storageReady) throw Error("Subly could not read the local subscription list.");
-    const backup = JSON.stringify({app: "Subly", version: 1, subscriptions: services});
+    const backup = snapshot(services);
+    const baseline = syncBaseline();
+    if (automatic && baseline?.hash === await fingerprint(backup)) return;
     const metadata = await request("api", "get_metadata", {"Content-Type": "application/json"}, JSON.stringify({path}));
     let mode = "add";
     if (metadata.ok) {
       const {rev} = await metadata.json();
       if (!rev) throw Error("Subly could not read the current Dropbox backup revision.");
-      if (!confirm("Replace the existing Dropbox backup with this device’s subscription list?")) return;
+      if (automatic && baseline?.rev !== rev) {
+        throw Error("Dropbox has a different backup. Review Back up now or Restore backup in Settings.");
+      }
+      if (!automatic && !confirm("Replace the existing Dropbox backup with this device’s subscription list?")) return;
       mode = {".tag": "update", update: rev};
     } else if (!(await missing(metadata))) {
       throw Error("Subly could not check the Dropbox backup. Verify the app permissions.");
+    } else if (automatic && baseline?.rev) {
+      throw Error("The Dropbox backup was removed. Use Back up now in Settings to create it again.");
     }
     const saved = await request("content", "upload", {
       "Content-Type": "application/octet-stream",
@@ -159,12 +222,19 @@
     }, backup);
     if (saved.status === 409) throw Error("The Dropbox backup changed. Try again to review the latest version.");
     if (!saved.ok) throw Error("Dropbox could not save the backup.");
+    const {rev} = await saved.json();
+    await markSynced(backup, rev);
     status.textContent = "Subscription backup saved to Dropbox.";
-  });
+  }
+  byId("dropbox-upload").onclick = () => run(() => upload(false), true);
 
   byId("dropbox-download").onclick = () => run(async () => {
-    const response = await request("content", "download", {"Dropbox-API-Arg": JSON.stringify({path})});
-    if (await missing(response)) throw Error("No Subly backup was found in Dropbox.");
+    const metadata = await request("api", "get_metadata", {"Content-Type": "application/json"}, JSON.stringify({path}));
+    if (await missing(metadata)) throw Error("No Subly backup was found in Dropbox.");
+    if (!metadata.ok) throw Error("Dropbox could not check the backup.");
+    const {rev} = await metadata.json();
+    if (!rev) throw Error("Dropbox did not return a backup revision.");
+    const response = await request("content", "download", {"Dropbox-API-Arg": JSON.stringify({path: "rev:" + rev})});
     if (!response.ok) throw Error("Dropbox could not download the backup.");
     const backup = await response.json().catch(() => null);
     const subscriptions = backup?.subscriptions;
@@ -176,11 +246,13 @@
     if (!confirm("Replace this device’s subscription list with the " + subscriptions.length + " entries from Dropbox?")) return;
     read();
     if (!persist(subscriptions)) throw Error("Subly could not save the restored subscriptions.");
+    await markSynced(snapshot(subscriptions), rev);
     status.textContent = "Subscription backup restored from Dropbox.";
-  });
+  }, true);
 
   function disconnect() {
     localStorage.removeItem(connectionKey);
+    localStorage.removeItem(syncedKey);
     connection = null;
     token = null;
     expiresAt = 0;
@@ -189,11 +261,23 @@
   }
 
   byId("dropbox-disconnect").onclick = () => run(disconnect);
+  function scheduleSync() {
+    clearTimeout(syncTimer);
+    if (!connection || !navigator.onLine) return;
+    syncTimer = setTimeout(() => {
+      if (busy) scheduleSync();
+      else run(() => upload(true), true);
+    }, 1500);
+  }
+  window.addEventListener("subly:subscriptions-changed", updateSyncStatus);
+  window.addEventListener("subly:subscriptions-changed", scheduleSync);
+  window.addEventListener("storage", updateSyncStatus);
+  window.addEventListener("online", scheduleSync);
   try {
     appKeyInput.value = localStorage.getItem(appKeyStorage) ?? "";
   } catch {
     // The key can still be entered manually.
   }
   showConnection();
-  if (supported) run(restoreConnection);
+  if (supported) run(restoreConnection).then(scheduleSync);
 }

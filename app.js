@@ -33,6 +33,7 @@ function persist(next) {
   catch {byId("error").textContent = "Unable to save. Check available browser storage."; return false;}
   services = next;
   render();
+  window.dispatchEvent(new Event("subly:subscriptions-changed"));
   return true;
 }
 function today() {
@@ -209,7 +210,8 @@ function showPage() {
   const settingsOpen = location.hash === "#settings";
   byId("overview").hidden = settingsOpen;
   byId("settings").hidden = !settingsOpen;
-  byId("settings-link").hidden = settingsOpen;
+  byId(settingsOpen ? "overview-link" : "settings-link").removeAttribute("aria-current");
+  byId(settingsOpen ? "settings-link" : "overview-link").setAttribute("aria-current", "page");
 }
 
 window.addEventListener("hashchange", showPage);
@@ -351,7 +353,7 @@ byId("open-changelog").onclick = async () => {
     content.replaceChildren();
     let list;
     for (const line of notes.split(/\r?\n/)) {
-      if (/^(?:Unreleased|\d+\.\d+\.\d+)$/.test(line)) {
+      if (/^(?:Unreleased|(?:Version )?\d+\.\d+\.\d+(?: -- \d{4}-\d{2}-\d{2})?)$/.test(line)) {
         content.append(el("h3", "", line));
         list = null;
       } else if (line.startsWith("- ")) {
@@ -366,3 +368,25 @@ byId("open-changelog").onclick = async () => {
     content.textContent = "Could not load the release notes.";
   }
 };
+
+const accentPicker = byId("accent-colour");
+const accentKey = "subly.accent";
+try {
+  const savedAccent = localStorage.getItem(accentKey);
+  for (const radio of accentPicker.querySelectorAll("input")) {
+    if (radio.value === savedAccent) radio.checked = true;
+  }
+} catch {
+  // Keep the default when browser storage is unavailable.
+}
+
+document.documentElement.dataset.accent = accentPicker.querySelector(":checked").value;
+accentPicker.addEventListener("change", event => {
+  const accent = event.target.value;
+  document.documentElement.dataset.accent = accent;
+  try {
+    localStorage.setItem(accentKey, accent);
+  } catch {
+    // The accent still applies for this page visit.
+  }
+});
