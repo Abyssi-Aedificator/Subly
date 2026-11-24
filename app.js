@@ -215,9 +215,127 @@ function showPage() {
 window.addEventListener("hashchange", showPage);
 showPage();
 
-if ("serviceWorker" in navigator && /^https?:$/.test(location.protocol)) {
-  navigator.serviceWorker.register("./sw.js").catch(error => {
-    console.warn("Subly offline setup failed.", error);
+const checkUpdates = byId("check-updates");
+const checkStatus = byId("check-update-status");
+const supportsUpdates = "serviceWorker" in navigator && window.isSecureContext && /^https?:$/.test(location.protocol);
+checkUpdates.onclick = () => {
+  checkStatus.textContent = supportsUpdates
+    ? "The update service is unavailable. Reload Subly and try again."
+    : "Open Subly over HTTPS or localhost to check for updates.";
+};
+if (supportsUpdates) {
+  setupAppUpdates().catch(error => console.warn("Subly offline setup failed.", error));
+}
+
+async function setupAppUpdates() {
+  const workers = navigator.serviceWorker;
+  const dialog = byId("update-dialog");
+  const reopen = byId("show-update");
+  const updateNow = byId("update-now");
+  const status = byId("update-status");
+  let offeredWorker;
+  let applying = false;
+  let outdated = false;
+  let deferred = false;
+
+  workers.addEventListener("controllerchange", () => {
+    if (applying) {
+      location.reload();
+    } else if (offeredWorker) {
+      outdated = true;
+      reopen.hidden = false;
+    }
+  });
+
+  const registration = await workers.register("./sw.js");
+
+  function promptUpdate() {
+    if (!offeredWorker || document.querySelector("dialog[open]")) return;
+    dialog.showModal();
+  }
+
+  function offerWaitingUpdate() {
+    const waiting = registration.waiting;
+    if (!waiting || !workers.controller || waiting === offeredWorker) return;
+    offeredWorker = waiting;
+    reopen.hidden = false;
+    if (!document.hidden) promptUpdate();
+  }
+
+  function watchInstallation() {
+    const installing = registration.installing;
+    installing?.addEventListener("statechange", () => {
+      if (installing.state === "installed") offerWaitingUpdate();
+    });
+  }
+
+  registration.addEventListener("updatefound", watchInstallation);
+  watchInstallation();
+  offerWaitingUpdate();
+  reopen.onclick = promptUpdate;
+  dialog.addEventListener("close", () => {
+    deferred = true;
+  });
+  for (const otherDialog of document.querySelectorAll("dialog:not(#update-dialog)")) {
+    otherDialog.addEventListener("close", () => {
+      if (!deferred && !document.hidden) promptUpdate();
+    });
+  }
+
+  updateNow.onclick = () => {
+    if (outdated) {
+      location.reload();
+      return;
+    }
+    const waiting = registration.waiting;
+    if (!waiting) {
+      status.textContent = "The update is no longer waiting. Reopen Subly to check again.";
+      return;
+    }
+    applying = true;
+    updateNow.disabled = true;
+    status.textContent = "Applying update…";
+    waiting.postMessage({type: "SUBLY_APPLY_UPDATE"});
+  };
+
+  let lastCheck = Date.now();
+  checkUpdates.onclick = async () => {
+    checkUpdates.disabled = true;
+    checkStatus.textContent = "Checking for updates…";
+    lastCheck = Date.now();
+    try {
+      if (!registration.waiting && !registration.installing && !outdated) await registration.update();
+      const installing = registration.installing;
+      if (installing && installing.state !== "installed" && installing.state !== "redundant") {
+        await new Promise(resolve => {
+          installing.addEventListener("statechange", function finished() {
+            if (!["installed", "activated", "redundant"].includes(installing.state)) return;
+            installing.removeEventListener("statechange", finished);
+            resolve();
+          });
+        });
+      }
+      if (registration.waiting && workers.controller) offerWaitingUpdate();
+      if (offeredWorker) {
+        checkStatus.textContent = "An update is available.";
+        promptUpdate();
+      } else if (installing?.state === "redundant") {
+        checkStatus.textContent = "The update could not be prepared. Try again.";
+      } else {
+        checkStatus.textContent = "Subly is up to date.";
+      }
+    } catch {
+      checkStatus.textContent = "Could not check for updates. Check your connection and try again.";
+    } finally {
+      checkUpdates.disabled = false;
+    }
+  };
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden) return;
+    if (!deferred) promptUpdate();
+    if (Date.now() - lastCheck < 60000) return;
+    lastCheck = Date.now();
+    registration.update().catch(() => {});
   });
 }
 

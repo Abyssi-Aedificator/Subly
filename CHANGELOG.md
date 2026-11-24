@@ -1,5 +1,22 @@
 # Changelog
 
+## Unreleased
+
+- Keep service search and the status filter side by side.
+
+- Show the app update date beside a stamp-style version badge.
+
+- Keep the Subly logo and title static.
+
+- Check for app updates manually from Settings.
+
+- Choose whether to apply an available app update now or later.
+
+- Use Roboto throughout the app, including offline.
+
+- Redesigned Overview and Settings with a ledger layout and light and dark palettes.
+- Added a ledger icon to the header, browser tab, and installed app.
+
 ## 1.0.0
 
 - Add, edit, and delete online subscriptions with weekly, monthly, or yearly billing.

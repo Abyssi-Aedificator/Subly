@@ -35,3 +35,5 @@ Open **Settings** from Overview. Under **Appearance**, choose **Light**, **Dark*
 ## Install and use offline
 
 Open Subly over HTTPS or localhost and use your browser's **Install** or **Add to Home Screen** option. After Subly finishes loading online, you can track subscriptions and use Settings offline. Dropbox backup and restore require internet access.
+
+Use **Settings → Release notes → Check for updates** to check manually. When a new build is ready, choose **Update now** to reload Subly or **Later** to keep working. You can reopen the prompt from **Update available** in the header.

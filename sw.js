@@ -1,9 +1,10 @@
 "use strict";
 
 const cachePrefix = "subly-shell:" + self.registration.scope + ":";
-const cacheName = cachePrefix + "v6";
+// Advance this revision when any app shell asset changes, including icon-only updates.
+const cacheName = cachePrefix + "v18";
 const shell = ["index.html", "style.css", "app.js", "dropbox.js", "CHANGELOG.md", "manifest.webmanifest",
-  "icon-192.png", "icon-512.png", "icon-180.png"];
+  "icon-192.png", "icon-512.png", "icon-180.png", "Roboto.ttf"];
 const shellUrls = shell.map(path => new URL(path, self.registration.scope).href);
 
 self.addEventListener("install", event => {
@@ -34,5 +35,11 @@ self.addEventListener("fetch", event => {
     event.respondWith(caches.open(cacheName).then(cache =>
       cache.match(request).then(response => response || fetch(request))
     ));
+  }
+});
+
+self.addEventListener("message", event => {
+  if (event.data?.type === "SUBLY_APPLY_UPDATE") {
+    event.waitUntil(self.skipWaiting());
   }
 });
