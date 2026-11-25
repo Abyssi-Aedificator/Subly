@@ -2,9 +2,9 @@
 
 const cachePrefix = "subly-shell:" + self.registration.scope + ":";
 // Advance this revision when any app shell asset changes, including icon-only updates.
-const cacheName = cachePrefix + "v34";
+const cacheName = cachePrefix + "v41";
 const shell = ["index.html", "style.css", "app.js", "dropbox.js", "changelog.txt", "manifest.webmanifest",
-  "icon-ledger-192.png", "icon-ledger-512.png", "icon-ledger-180.png", "Roboto.ttf"];
+  "icon-clear-192.png", "icon-clear-512.png", "icon-clear-180.png", "Roboto.ttf"];
 const shellUrls = shell.map(path => new URL(path, self.registration.scope).href);
 
 self.addEventListener("install", event => {

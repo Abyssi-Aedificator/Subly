@@ -176,7 +176,6 @@ label span { display: contents; }
 #notice, #error { color: var(--accent); margin-top: 12px; }
 #notice:empty, #error:empty { display: none; }
 #changelog-content ul { padding-inline-start: 22px; }
-#changelog-content li + li { margin-top: 8px; }
 
 @media (max-width: 760px) {
   #overview { display: block; }

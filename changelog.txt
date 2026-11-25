@@ -1,5 +1,12 @@
 Changelog
 
+Version 1.2.0 -- 2026-11-25
+
+- Schedule a subscription to switch from Suspended to Paused on its next renewal date. Suspended and active subscriptions share the same date order.
+- Allow a custom icon URL to override a subscription favicon.
+- Redesigned the app icon with a transparent background.
+
+
 Version 1.1.0 -- 2026-11-24
 
 - Show a service favicon when an optional website is saved and its icon is available.
@@ -7,6 +14,7 @@ Version 1.1.0 -- 2026-11-24
 - Show Dropbox connection, pending local changes, and transfer progress in Overview.
 - Select a colour square in Appearance to apply a device-local palette across Subly.
 - Keep Overview and Settings visible in a horizontal top menu, with a bottom accent and a left edge for Overview or right edge for Settings.
+
 
 Version 1.0.0 -- 2026-11-23
 

@@ -10,6 +10,16 @@ let editing = null;
 let services = [];
 let storageReady = true;
 
+function customIconUrl(value) {
+  if (typeof value !== "string" || !value.trim()) return null;
+  try {
+    const url = new URL(value);
+    return url.protocol === "https:" && !url.username && !url.password ? url.href : null;
+  } catch {
+    return null;
+  }
+}
+
 function faviconUrl(website) {
   if (typeof website !== "string" || !website.trim()) return null;
   try {
@@ -26,7 +36,10 @@ function valid(item) {
   return item && typeof item.id === "string" && typeof item.service === "string" &&
     Number.isSafeInteger(item.cents) && item.cents >= 0 && Object.hasOwn(cycles,item.cycle) &&
     /^\d{4}-\d{2}-\d{2}$/.test(item.date) && Number.isFinite(Date.parse(item.date)) &&
-    ["Active","Paused","Cancelled"].includes(item.state);
+    ["Active","Suspended","Paused","Cancelled"].includes(item.state) &&
+    (item.state !== "Suspended" ||
+      (typeof item.pauseOn === "string" && /^\d{4}-\d{2}-\d{2}$/.test(item.pauseOn) &&
+        Number.isFinite(Date.parse(item.pauseOn))));
 }
 function read() {
   try {
@@ -87,12 +100,15 @@ function el(tag,cls,value) {
 }
 function render() {
   const day = today();
-  const active = services.filter(s => s.state === "Active").map(s => ({s,date:nextRenewal(s,day)}))
+  const visibleServices = services.map(s => s.state === "Suspended" &&
+    new Date(s.pauseOn + "T00:00:00") <= day ? {...s, state:"Paused"} : s);
+  const active = visibleServices.filter(s => s.state === "Active").map(s => ({s,date:nextRenewal(s,day)}))
     .sort((a,b) => a.date-b.date || a.s.service.localeCompare(b.s.service));
-  const annual = active.reduce((sum,{s}) => sum+s.cents*cycles[s.cycle],0)/100;
+  const current = visibleServices.filter(s => s.state === "Active" || s.state === "Suspended");
+  const annual = current.reduce((sum,s) => sum+s.cents*cycles[s.cycle],0)/100;
   byId("monthly").textContent = money.format(annual/12);
   byId("yearly").textContent = money.format(annual);
-  byId("active").textContent = active.length;
+  byId("active").textContent = current.length;
   const upcoming = byId("upcoming");
   upcoming.replaceChildren();
   for (const {s,date} of active.slice(0,3)) {
@@ -109,13 +125,16 @@ function render() {
   const status = byId("status").value;
   const list = byId("list");
   list.replaceChildren();
-  const statusOrder = {Active:0, Paused:1, Cancelled:2};
+  const statusOrder = {Active:0, Suspended:0, Paused:1, Cancelled:2};
   const renewalDates = new Map(active.map(({s,date}) => [s,date]));
-  const matches = services.filter(s => s.service.toLowerCase().includes(query) &&
+  for (const s of current) {
+    if (s.state === "Suspended") renewalDates.set(s, new Date(s.pauseOn + "T00:00:00"));
+  }
+  const matches = visibleServices.filter(s => s.service.toLowerCase().includes(query) &&
     (status === "All statuses" || s.state === status)).sort((a,b) => {
       const stateDifference = statusOrder[a.state] - statusOrder[b.state];
       if (stateDifference) return stateDifference;
-      if (a.state === "Active") {
+      if (statusOrder[a.state] === 0) {
         const dateDifference = renewalDates.get(a) - renewalDates.get(b);
         if (dateDifference) return dateDifference;
       }
@@ -125,13 +144,17 @@ function render() {
     const row = el("div","row");
     const name = el("div","details");
     let when = s.state;
+    if (s.state === "Suspended") {
+      const date = new Date(s.pauseOn + "T00:00:00");
+      when = "Suspended · Pauses " + date.toLocaleDateString(undefined,{month:"short",day:"numeric",year:"numeric"});
+    }
     if (s.state === "Active") {
       const date = renewalDates.get(s);
       const formattedDate = date.toLocaleDateString(undefined,{month:"short",day:"numeric",year:"numeric"});
       when = renewalCountdown(date,day) + " · " + formattedDate;
     }
     if (s.state === "Paused" || s.state === "Cancelled") {
-      const renewalDate = new Date(s.date + "T00:00:00");
+      const renewalDate = new Date((s.state === "Paused" ? s.pauseOn ?? s.date : s.date) + "T00:00:00");
       const days = (calendarDay(day) - calendarDay(renewalDate)) / 86400000;
       if (days === 0) when = s.state + " today";
       if (days > 0) {
@@ -147,13 +170,20 @@ function render() {
     edit.onclick = () => openEditor(s);
     const avatar = el("div","avatar",Array.from(s.service)[0].toUpperCase());
     avatar.setAttribute("aria-hidden", "true");
-    const iconUrl = faviconUrl(s.website);
-    if (iconUrl) {
+    const iconUrl = customIconUrl(s.iconUrl);
+    const fallbackUrl = faviconUrl(s.website);
+    if (iconUrl || fallbackUrl) {
       const icon = el("img","service-icon");
       icon.alt = "";
       icon.referrerPolicy = "no-referrer";
       icon.onload = () => avatar.replaceChildren(icon);
-      icon.src = iconUrl;
+      if (iconUrl && fallbackUrl && iconUrl !== fallbackUrl) {
+        icon.onerror = () => {
+          icon.onerror = null;
+          icon.src = fallbackUrl;
+        };
+      }
+      icon.src = iconUrl || fallbackUrl;
     }
     row.append(avatar,name,price,edit);
     list.append(row);
@@ -173,9 +203,9 @@ function openEditor(s) {
   editor.showModal();
   form.elements.service.focus();
   form.elements.website.value = s?.website ?? "";
+  form.elements.iconUrl.value = s?.iconUrl ?? "";
 }
-function localDate() {
-  const day = today();
+function localDate(day = today()) {
   return [day.getFullYear(), String(day.getMonth()+1).padStart(2,"0"), String(day.getDate()).padStart(2,"0")].join("-");
 }
 byId("currency").textContent = "("+currency+")";
@@ -192,9 +222,24 @@ form.onsubmit = event => {
     byId("error").textContent = "Enter a valid HTTPS website or domain.";
     return;
   }
+  const iconUrl = values.iconUrl.trim();
+  if (iconUrl && !customIconUrl(iconUrl)) {
+    byId("error").textContent = "Enter a direct HTTPS image URL for the icon.";
+    return;
+  }
   const item = {id:editing ?? crypto.randomUUID(),service,cents:Math.round(Number(values.price)*100),
     date:values.date,cycle:values.cycle,state:values.state};
+  const previous = services.find(s => s.id === editing);
+  if (item.state === "Suspended") {
+    const sameSchedule = previous?.state === "Suspended" &&
+      previous.date === item.date && previous.cycle === item.cycle &&
+      previous.pauseOn > localDate();
+    item.pauseOn = sameSchedule ? previous.pauseOn : localDate(nextRenewal(item,today()));
+  } else if (item.state === "Paused" && previous?.pauseOn <= localDate() && previous.date === item.date) {
+    item.pauseOn = previous.pauseOn;
+  }
   if (website) item.website = website;
+  if (iconUrl) item.iconUrl = iconUrl;
   const next = editing ? services.map(s => s.id === editing ? item : s) : [...services,item];
   if (persist(next)) editor.close();
 };
@@ -203,6 +248,13 @@ byId("remove").onclick = () => {
 };
 window.addEventListener("storage",() => {read();render();});
 window.addEventListener("focus",render);
+let lastCalendarDate = localDate();
+setInterval(() => {
+  const date = localDate();
+  if (date === lastCalendarDate) return;
+  lastCalendarDate = date;
+  render();
+}, 30000);
 read();
 render();
 

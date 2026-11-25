@@ -17,8 +17,8 @@ Open [Subly on localhost](http://127.0.0.1:8080/index.html). Continue using the 
 - Select **Add subscription** and enter the service, price, billing cycle, and renewal date. Subly supports weekly, monthly, and yearly billing.
 - **Overview** shows estimated monthly and yearly spending, the active subscription count, and the next three renewals.
 - Active services appear in renewal order and show how many days are left. Paused services come next, followed by cancelled services. Their elapsed time is counted from the saved **Renewal date**.
-- Add an optional service website to try its favicon. Subly shows the initial when the favicon is unavailable.
-- Search by service name, filter by status, or select **Edit** to update a subscription. Spending and renewal forecasts include active services only.
+- Add an optional service website to try its favicon. Provide an optional direct HTTPS image URL to override the favicon. If the custom image fails, Subly tries the favicon and then shows the service initial.
+- Search by service name, filter by status, or select **Edit** to update a subscription. Choose **Suspended** to schedule a pause on the next renewal date. Suspended services appear alongside active services in date order and count toward recurring spending until the pause takes effect. Upcoming renewals excludes charges scheduled to pause.
 
 ## Settings
 
