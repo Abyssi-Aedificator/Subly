@@ -1,16 +1,14 @@
 Changelog
 
-Unreleased
+Version 1.1.0 -- 2026-11-24
 
+- Show a service favicon when an optional website is saved and its icon is available.
 - Automatically back up local subscription changes to Dropbox, with revision checks to protect newer backups.
-
 - Show Dropbox connection, pending local changes, and transfer progress in Overview.
-
 - Select a colour square in Appearance to apply a device-local palette across Subly.
-
 - Keep Overview and Settings visible in a horizontal top menu, with a bottom accent and a left edge for Overview or right edge for Settings.
 
-Version 1.0.0 -- 2026-11-24
+Version 1.0.0 -- 2026-11-23
 
 - Refresh the installed app icon using new icon URLs so older cached artwork can be replaced.
 - Keep service search and the status filter side by side.

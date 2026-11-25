@@ -521,3 +521,9 @@ main { margin-bottom: 20px; }
   #overview .heading { grid-template-columns: minmax(0, 1fr) auto; }
   #overview-sync { grid-column: 1 / -1; grid-row: 2; justify-self: center; }
 }
+
+.service-icon {
+  width: 26px;
+  height: 26px;
+  object-fit: contain;
+}

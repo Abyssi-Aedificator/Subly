@@ -10,6 +10,18 @@ let editing = null;
 let services = [];
 let storageReady = true;
 
+function faviconUrl(website) {
+  if (typeof website !== "string" || !website.trim()) return null;
+  try {
+    const value = website.trim();
+    const url = new URL(/^[a-z][a-z\d+.-]*:\/\//i.test(value) ? value : "https://" + value);
+    if (url.protocol !== "https:" || url.username || url.password || !url.hostname.includes(".")) return null;
+    return new URL("/favicon.ico", url.origin).href;
+  } catch {
+    return null;
+  }
+}
+
 function valid(item) {
   return item && typeof item.id === "string" && typeof item.service === "string" &&
     Number.isSafeInteger(item.cents) && item.cents >= 0 && Object.hasOwn(cycles,item.cycle) &&
@@ -133,7 +145,17 @@ function render() {
     const edit = el("button","","Edit");
     edit.setAttribute("aria-label","Edit "+s.service);
     edit.onclick = () => openEditor(s);
-    row.append(el("div","avatar",Array.from(s.service)[0].toUpperCase()),name,price,edit);
+    const avatar = el("div","avatar",Array.from(s.service)[0].toUpperCase());
+    avatar.setAttribute("aria-hidden", "true");
+    const iconUrl = faviconUrl(s.website);
+    if (iconUrl) {
+      const icon = el("img","service-icon");
+      icon.alt = "";
+      icon.referrerPolicy = "no-referrer";
+      icon.onload = () => avatar.replaceChildren(icon);
+      icon.src = iconUrl;
+    }
+    row.append(avatar,name,price,edit);
     list.append(row);
   }
   if (!matches.length) list.append(el("p","empty",services.length ? "No matching subscriptions." : "Add your first subscription to see its cost and renewal date."));
@@ -150,6 +172,7 @@ function openEditor(s) {
   byId("error").textContent = "";
   editor.showModal();
   form.elements.service.focus();
+  form.elements.website.value = s?.website ?? "";
 }
 function localDate() {
   const day = today();
@@ -164,8 +187,14 @@ form.onsubmit = event => {
   const values = Object.fromEntries(new FormData(form));
   const service = values.service.trim();
   if (!service) {byId("error").textContent = "Enter a service name."; return;}
+  const website = values.website.trim();
+  if (website && !faviconUrl(website)) {
+    byId("error").textContent = "Enter a valid HTTPS website or domain.";
+    return;
+  }
   const item = {id:editing ?? crypto.randomUUID(),service,cents:Math.round(Number(values.price)*100),
     date:values.date,cycle:values.cycle,state:values.state};
+  if (website) item.website = website;
   const next = editing ? services.map(s => s.id === editing ? item : s) : [...services,item];
   if (persist(next)) editor.close();
 };
