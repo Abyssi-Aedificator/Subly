@@ -195,6 +195,18 @@
     return result.error_summary?.startsWith("path/not_found");
   }
 
+  function confirmReplacement(title, message, action) {
+    const dialog = byId("dropbox-confirm");
+    byId("dropbox-confirm-title").textContent = title;
+    byId("dropbox-confirm-message").textContent = message;
+    byId("dropbox-confirm-action").textContent = action;
+    dialog.returnValue = "cancel";
+    return new Promise(resolve => {
+      dialog.showModal();
+      dialog.addEventListener("close", () => resolve(dialog.returnValue === "replace"), {once:true});
+    });
+  }
+
   async function upload(automatic) {
     read();
     if (!storageReady) throw Error("Subly could not read the local subscription list.");
@@ -209,7 +221,8 @@
       if (automatic && baseline?.rev !== rev) {
         throw Error("Dropbox has a different backup. Review Back up now or Restore backup in Settings.");
       }
-      if (!automatic && !confirm("Replace the existing Dropbox backup with this device’s subscription list?")) return;
+      if (!automatic && !await confirmReplacement("Replace Dropbox backup?",
+        "This device’s subscription list will replace the existing Dropbox backup.", "Replace backup")) return;
       mode = {".tag": "update", update: rev};
     } else if (!(await missing(metadata))) {
       throw Error("Subly could not check the Dropbox backup. Verify the app permissions.");
@@ -243,7 +256,12 @@
         new Set(subscriptions.map(item => item.id)).size !== subscriptions.length) {
       throw Error("The Dropbox file is not a valid Subly backup.");
     }
-    if (!confirm("Replace this device’s subscription list with the " + subscriptions.length + " entries from Dropbox?")) return;
+    const localBeforeConfirmation = localStorage.getItem(key);
+    if (!await confirmReplacement("Restore Dropbox backup?",
+      "The " + subscriptions.length + " entries from Dropbox will replace this device’s subscription list.", "Restore backup")) return;
+    if (localStorage.getItem(key) !== localBeforeConfirmation) {
+      throw Error("The local subscription list changed. Review the backup again before restoring.");
+    }
     read();
     if (!persist(subscriptions)) throw Error("Subly could not save the restored subscriptions.");
     await markSynced(snapshot(subscriptions), rev);

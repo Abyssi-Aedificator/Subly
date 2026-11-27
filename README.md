@@ -24,6 +24,10 @@ Open [Subly on localhost](http://127.0.0.1:8080/index.html). Continue using the 
 
 Open **Settings** from Overview. Under **Appearance**, choose **Light**, **Dark**, or **System**. System follows your device's appearance and updates while Subly is open. Select a colour square under **Accent colour** to apply its palette across Subly. The choice is saved on your device.
 
+### CSV export
+
+In **Settings → Export**, choose **Export CSV** to download all subscriptions, including paused and cancelled entries. The export works offline.
+
 ### Dropbox backup
 
 1. In the [Dropbox App Console](https://www.dropbox.com/developers/apps), create a Scoped access app with **App folder** access.
@@ -31,7 +35,7 @@ Open **Settings** from Overview. Under **Appearance**, choose **Light**, **Dark*
 3. Register the exact Subly address as an OAuth redirect URI. For the example above, use `http://127.0.0.1:8080/index.html`.
 4. In **Settings → Dropbox backup**, enter the Dropbox app key and choose **Connect Dropbox**.
 
-**Back up now** saves your list to `subly-backup.json` in the Dropbox app folder. **Restore backup** replaces this device's list after confirmation. Subly asks before manually replacing an existing Dropbox backup. Use the same Dropbox app key and account on each device. While Subly is open and connected, local subscription changes are backed up automatically. If Dropbox has a different backup revision, open Settings to review Back up now or Restore backup. Restores require confirmation. Overview shows when a transfer is running and whether the local list differs from the last successful backup or restore. Subly remembers the app key in your browser after successful authorization. Subly also keeps the connection across restarts and renews access when you back up or restore. Existing connections require one reconnection to enable this.
+**Back up now** saves your list to `subly-backup.json` in the Dropbox app folder. **Restore backup** replaces this device's list after you confirm in Subly. Subly asks before manually replacing an existing Dropbox backup. Use the same Dropbox app key and account on each device. While Subly is open and connected, local subscription changes are backed up automatically. If Dropbox has a different backup revision, open Settings to review Back up now or Restore backup. Restores require confirmation. Overview shows when a transfer is running and whether the local list differs from the last successful backup or restore. Subly remembers the app key in your browser after successful authorization. Subly also keeps the connection across restarts and renews access when you back up or restore. Existing connections require one reconnection to enable this.
 
 ## Install and use offline
 

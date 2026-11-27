@@ -98,10 +98,12 @@ function el(tag,cls,value) {
   if (value !== undefined) node.textContent = value;
   return node;
 }
+function effectiveState(service, day) {
+  return service.state === "Suspended" && service.pauseOn <= localDate(day) ? "Paused" : service.state;
+}
 function render() {
   const day = today();
-  const visibleServices = services.map(s => s.state === "Suspended" &&
-    new Date(s.pauseOn + "T00:00:00") <= day ? {...s, state:"Paused"} : s);
+  const visibleServices = services.map(s => ({...s, state:effectiveState(s, day)}));
   const active = visibleServices.filter(s => s.state === "Active").map(s => ({s,date:nextRenewal(s,day)}))
     .sort((a,b) => a.date-b.date || a.s.service.localeCompare(b.s.service));
   const current = visibleServices.filter(s => s.state === "Active" || s.state === "Suspended");
@@ -208,6 +210,37 @@ function openEditor(s) {
 function localDate(day = today()) {
   return [day.getFullYear(), String(day.getMonth()+1).padStart(2,"0"), String(day.getDate()).padStart(2,"0")].join("-");
 }
+
+function csvCell(value) {
+  const text = String(value ?? "");
+  const safe = /^[\s\uFEFF]*[=+@-]|^[\t\r\n]/.test(text) ? "'" + text : text;
+  return '"' + safe.replaceAll('"', '""') + '"';
+}
+
+byId("export-csv").onclick = () => {
+  read();
+  const status = byId("export-status");
+  if (!storageReady) {
+    status.textContent = "Could not read the subscription list.";
+    return;
+  }
+  const day = today();
+  const rows = [
+    ["Service", "Price (CAD)", "Billing cycle", "Renewal date", "Status", "Pause date", "Website", "Icon URL"],
+    ...services.map(s => [s.service, (s.cents / 100).toFixed(2), s.cycle, s.date,
+      effectiveState(s, day), s.pauseOn, s.website, s.iconUrl])
+  ];
+  const csv = rows.map(row => row.map(csvCell).join(",")).join("\r\n") + "\r\n";
+  const url = URL.createObjectURL(new Blob(["\uFEFF", csv], {type:"text/csv;charset=utf-8"}));
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = "subly-subscriptions-" + localDate(day) + ".csv";
+  document.body.append(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  status.textContent = "CSV download started.";
+};
 byId("currency").textContent = "("+currency+")";
 byId("add").onclick = () => openEditor(null);
 byId("close").onclick = () => editor.close();

@@ -1,5 +1,11 @@
 Changelog
 
+Version 1.2.1 -- 2026-11-27
+
+- Confirm Dropbox backup replacements and restores in an in-app dialog.
+- Export the full subscription list to CSV from Settings, with a download status below the button.
+
+
 Version 1.2.0 -- 2026-11-25
 
 - Schedule a subscription to switch from Suspended to Paused on its next renewal date. Suspended and active subscriptions share the same date order.

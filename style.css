@@ -526,3 +526,7 @@ main { margin-bottom: 20px; }
   height: 26px;
   object-fit: contain;
 }
+
+#export-status:not(:empty) { margin-top: 10px; }
+
+#dropbox-confirm-message { margin-top: 12px; }
