@@ -1,5 +1,12 @@
 Changelog
 
+Version 1.3.0 -- 2026-11-27
+
+- Apply a curved-line background to the Overview summary.
+- View active and inactive streaming subscriptions on the Streaming dashboard with service artwork, pricing, and status details.
+- Create and manage custom categories in a dialog from Settings and optionally assign them to subscriptions. Assigned categories use the current accent colour and are included in CSV exports.
+
+
 Version 1.2.1 -- 2026-11-27
 
 - Confirm Dropbox backup replacements and restores in an in-app dialog.

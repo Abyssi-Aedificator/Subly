@@ -9,6 +9,53 @@ const editor = byId("editor");
 let editing = null;
 let services = [];
 let storageReady = true;
+const categoriesKey = "subly.categories";
+
+function savedCategories() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(categoriesKey) ?? "[]");
+    return Array.isArray(saved) ? saved.filter(name => typeof name === "string" && name.trim()) : [];
+  } catch {
+    return [];
+  }
+}
+
+function categoryNames() {
+  const assigned = services.map(service => service.category)
+    .filter(name => typeof name === "string" && name.trim());
+  return [...new Set([...savedCategories(), ...assigned])].sort((a,b) => a.localeCompare(b));
+}
+
+function saveCategories(names) {
+  try {
+    localStorage.setItem(categoriesKey, JSON.stringify(names));
+    byId("category-status").textContent = "";
+    renderCategories();
+    return true;
+  } catch {
+    byId("category-status").textContent = "Could not save categories.";
+    return false;
+  }
+}
+
+function renderCategories() {
+  const list = byId("category-list");
+  const names = categoryNames();
+  list.replaceChildren();
+  if (!names.length) list.append(el("p", "dropbox-status", "No categories yet."));
+  for (const name of names) {
+    const row = el("div", "row");
+    const inUse = services.some(service => service.category === name);
+    const details = el("div", "details", name);
+    const remove = el("button", "", "Remove");
+    remove.disabled = inUse || !storageReady;
+    remove.setAttribute("aria-label", "Remove " + name);
+    if (inUse) details.append(el("small", "", "In use"));
+    remove.onclick = () => saveCategories(savedCategories().filter(category => category !== name));
+    row.append(details, remove);
+    list.append(row);
+  }
+}
 
 function customIconUrl(value) {
   if (typeof value !== "string" || !value.trim()) return null;
@@ -102,8 +149,10 @@ function effectiveState(service, day) {
   return service.state === "Suspended" && service.pauseOn <= localDate(day) ? "Paused" : service.state;
 }
 function render() {
+  renderCategories();
   const day = today();
   const visibleServices = services.map(s => ({...s, state:effectiveState(s, day)}));
+  renderStreaming(visibleServices);
   const active = visibleServices.filter(s => s.state === "Active").map(s => ({s,date:nextRenewal(s,day)}))
     .sort((a,b) => a.date-b.date || a.s.service.localeCompare(b.s.service));
   const current = visibleServices.filter(s => s.state === "Active" || s.state === "Suspended");
@@ -164,30 +213,16 @@ function render() {
         when = s.state === "Paused" ? "Paused for " + duration : "Cancelled " + duration + " ago";
       }
     }
-    name.append(el("b","",s.service),el("small","",when));
+    const metadata = el("small");
+    if (s.category) metadata.append(el("span", "subscription-category", s.category), " · ");
+    metadata.append(when);
+    name.append(el("b","",s.service),metadata);
     const price = el("div","price");
     price.append(el("b","",money.format(s.cents/100)),el("small","",s.cycle));
     const edit = el("button","","Edit");
     edit.setAttribute("aria-label","Edit "+s.service);
     edit.onclick = () => openEditor(s);
-    const avatar = el("div","avatar",Array.from(s.service)[0].toUpperCase());
-    avatar.setAttribute("aria-hidden", "true");
-    const iconUrl = customIconUrl(s.iconUrl);
-    const fallbackUrl = faviconUrl(s.website);
-    if (iconUrl || fallbackUrl) {
-      const icon = el("img","service-icon");
-      icon.alt = "";
-      icon.referrerPolicy = "no-referrer";
-      icon.onload = () => avatar.replaceChildren(icon);
-      if (iconUrl && fallbackUrl && iconUrl !== fallbackUrl) {
-        icon.onerror = () => {
-          icon.onerror = null;
-          icon.src = fallbackUrl;
-        };
-      }
-      icon.src = iconUrl || fallbackUrl;
-    }
-    row.append(avatar,name,price,edit);
+    row.append(serviceAvatar(s),name,price,edit);
     list.append(row);
   }
   if (!matches.length) list.append(el("p","empty",services.length ? "No matching subscriptions." : "Add your first subscription to see its cost and renewal date."));
@@ -205,6 +240,10 @@ function openEditor(s) {
   editor.showModal();
   form.elements.service.focus();
   form.elements.website.value = s?.website ?? "";
+  const categoryPicker = form.elements.category;
+  categoryPicker.replaceChildren(new Option("Uncategorized", ""));
+  for (const name of categoryNames()) categoryPicker.add(new Option(name, name));
+  categoryPicker.value = s?.category ?? "";
   form.elements.iconUrl.value = s?.iconUrl ?? "";
 }
 function localDate(day = today()) {
@@ -226,9 +265,9 @@ byId("export-csv").onclick = () => {
   }
   const day = today();
   const rows = [
-    ["Service", "Price (CAD)", "Billing cycle", "Renewal date", "Status", "Pause date", "Website", "Icon URL"],
+    ["Service", "Price (CAD)", "Billing cycle", "Renewal date", "Status", "Pause date", "Website", "Icon URL", "Category"],
     ...services.map(s => [s.service, (s.cents / 100).toFixed(2), s.cycle, s.date,
-      effectiveState(s, day), s.pauseOn, s.website, s.iconUrl])
+      effectiveState(s, day), s.pauseOn, s.website, s.iconUrl, s.category])
   ];
   const csv = rows.map(row => row.map(csvCell).join(",")).join("\r\n") + "\r\n";
   const url = URL.createObjectURL(new Blob(["\uFEFF", csv], {type:"text/csv;charset=utf-8"}));
@@ -243,6 +282,17 @@ byId("export-csv").onclick = () => {
 };
 byId("currency").textContent = "("+currency+")";
 byId("add").onclick = () => openEditor(null);
+byId("open-categories").onclick = () => byId("category-dialog").showModal();
+const categoryForm = byId("category-form");
+categoryForm.onsubmit = event => {
+  event.preventDefault();
+  const name = categoryForm.elements.categoryName.value.trim();
+  if (!name || categoryNames().some(category => category.toLowerCase() === name.toLowerCase())) {
+    byId("category-status").textContent = name ? "That category already exists." : "Enter a category name.";
+    return;
+  }
+  if (saveCategories([...savedCategories(), name])) categoryForm.reset();
+};
 byId("close").onclick = () => editor.close();
 byId("search").oninput = byId("status").onchange = render;
 form.onsubmit = event => {
@@ -272,6 +322,7 @@ form.onsubmit = event => {
     item.pauseOn = previous.pauseOn;
   }
   if (website) item.website = website;
+  if (values.category) item.category = values.category;
   if (iconUrl) item.iconUrl = iconUrl;
   const next = editing ? services.map(s => s.id === editing ? item : s) : [...services,item];
   if (persist(next)) editor.close();
@@ -320,12 +371,71 @@ themeSwitch.addEventListener("change", () => {
   }
 });
 
+function serviceAvatar(s) {
+    const avatar = el("div","avatar",Array.from(s.service)[0].toUpperCase());
+    avatar.setAttribute("aria-hidden", "true");
+    const iconUrl = customIconUrl(s.iconUrl);
+    const fallbackUrl = faviconUrl(s.website);
+    if (iconUrl || fallbackUrl) {
+      const icon = el("img","service-icon");
+      icon.alt = "";
+      icon.referrerPolicy = "no-referrer";
+      icon.onload = () => avatar.replaceChildren(icon);
+      if (iconUrl && fallbackUrl && iconUrl !== fallbackUrl) {
+        icon.onerror = () => {
+          icon.onerror = null;
+          icon.src = fallbackUrl;
+        };
+      }
+      icon.src = iconUrl || fallbackUrl;
+    }
+  return avatar;
+}
+
+function renderStreaming(entries) {
+  const streaming = entries.filter(s => typeof s.category === "string" &&
+    s.category.trim().toLowerCase() === "streaming").sort((a,b) => a.service.localeCompare(b.service));
+  const groups = {active: [], inactive: []};
+  for (const service of streaming) {
+    const active = service.state === "Active" || service.state === "Suspended";
+    groups[active ? "active" : "inactive"].push(service);
+  }
+  const day = today();
+  const formatDate = date => date.toLocaleDateString(undefined, {month:"short",day:"numeric",year:"numeric"});
+  for (const [group, members] of Object.entries(groups)) {
+    byId("streaming-" + group + "-count").textContent = members.length;
+    const list = byId("streaming-" + group);
+    list.replaceChildren();
+    for (const service of members) {
+      const row = el("button", "stream-ticket");
+      row.type = "button";
+      row.setAttribute("aria-label", "Edit " + service.service);
+      row.onclick = () => openEditor(service);
+      const details = el("span", "stream-details");
+      let timing = service.state;
+      if (service.state === "Active") timing = renewalCountdown(nextRenewal(service, day), day);
+      if (service.state === "Suspended") timing = "Pauses " + formatDate(new Date(service.pauseOn + "T00:00:00"));
+      details.append(el("b", "", service.service), el("small", "", timing));
+      const price = el("span", "price");
+      price.append(el("b", "", money.format(service.cents / 100)), el("small", "", service.cycle));
+      row.append(serviceAvatar(service), details, price);
+      list.append(row);
+    }
+    if (!members.length) list.append(el("p", "empty", !streaming.length && group === "active"
+      ? "Assign the Streaming category to a subscription to see it here." : "No " + group + " streaming services."));
+  }
+}
+
 function showPage() {
-  const settingsOpen = location.hash === "#settings";
-  byId("overview").hidden = settingsOpen;
-  byId("settings").hidden = !settingsOpen;
-  byId(settingsOpen ? "overview-link" : "settings-link").removeAttribute("aria-current");
-  byId(settingsOpen ? "settings-link" : "overview-link").setAttribute("aria-current", "page");
+  const pages = ["overview", "streaming", "settings"];
+  const requested = location.hash.slice(1);
+  const selected = pages.includes(requested) ? requested : "overview";
+  for (const page of pages) {
+    byId(page).hidden = page !== selected;
+    const link = byId(page + "-link");
+    if (page === selected) link.setAttribute("aria-current", "page");
+    else link.removeAttribute("aria-current");
+  }
 }
 
 window.addEventListener("hashchange", showPage);
