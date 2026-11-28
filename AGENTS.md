@@ -30,7 +30,7 @@ Subly is a buildless PWA for tracking online subscriptions. Serve the repository
 - Change the app version only when explicitly requested. For a generic bump request, inspect the current version and offer Major, Minor, Patch, or Consolidation. Show the resulting versions for Major, Minor, and Patch. Follow an explicitly supplied bump type or target version and clarify any conflict between them.
 - Use semantic versioning. Major increments the first component and resets the other two. Minor increments the second component and resets the patch. Patch increments the third component.
 - On release, update the `.version-badge` text and accessible label in `index.html` and the release heading in `changelog.txt` together. If runtime release markers are introduced, keep them aligned with the badge.
-- Keep release headings newest first. Record user-facing features and fixes under `Unreleased` until they ship, one bullet per line. Omit release-number and cache-revision bookkeeping from the bullets.
+- Keep release headings newest first. Leave two blank lines before each subsequent version heading. Within each version, including Unreleased, write each change as a separate single-line bullet with no blank lines between bullets. Record user-facing features and fixes under `Unreleased` until they ship. Omit release-number and cache-revision bookkeeping from the bullets.
 - When the user requests consolidation, confirm any missing inclusive version range and target. Combine and deduplicate affected user-facing notes into one release heading, preserve notes outside the range, and update the release markers and cache revision together.
 
 ## Git workflow
